@@ -2,12 +2,21 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
+// use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 class Main extends CI_Controller
 {
-	public $mail;
+	public $mail; # PHPMailer instance
+	
+	public $name;
+	public $user;
+	public $pass;
+
+	public $recipient;
+	public $subject;
+	public $message;
+
 	function __construct()
 	{
 		parent::__construct();
@@ -24,52 +33,52 @@ class Main extends CI_Controller
 	{
 		$request = json_decode(file_get_contents('php://input'), true);
 		$token = $request['token'];
+		$this->recipient = $request['email'];
+		$this->subject = $request['subject'];
+		$this->message = $request['message'];
 
-		$user = $this->mainModel->getClient($token);
+		$this->loadClient($token);
 		$this->loadMailer();
 	}
 
-	public function loadMailer()
+	public function loadClient(string $token)
 	{
-		//Create an instance; passing `true` enables exceptions
-		$mail = new PHPMailer(true);
-
-		try {
-			//Server settings
-			$mail->SMTPDebug = SMTP::DEBUG_SERVER;
-			$mail->isSMTP();
-			$mail->Host       = 'smtp.gmail.com';
-			$mail->SMTPAuth   = true;
-			$mail->Username   = 'user@example.com';
-			$mail->Password   = 'secret';
-			$mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-			$mail->Port       = 465;
-			//Recipients
-			$mail->setFrom('from@example.com', 'Mailer');
-			$mail->addAddress('joe@example.net', 'Joe User');
-			$mail->addAddress('ellen@example.com');
-			$mail->addReplyTo('info@example.com', 'Information');
-			$mail->addCC('cc@example.com');
-			$mail->addBCC('bcc@example.com');
-
-			//Attachments
-			// $mail->addAttachment('/tmp/image.jpg', 'new.jpg');    //Optional name
-
-			//Content
-			$mail->isHTML(true);
-			$mail->Subject = 'Here is the subject';
-			$mail->Body    = 'This is the HTML message body <b>in bold!</b>';
-			$mail->AltBody = 'This is the body in plain text for non-HTML mail clients';
-
-			$mail->send();
-			echo 'Message has been sent';
-		} catch (Exception $e) {
-			echo "Message could not be sent. Mailer Error: {$mail->ErrorInfo}";
-		}
+		$client = $this->mainModel->getClient($token);
+		$this->name = $client['name'];
+		$this->user = $client['email'];
+		$this->pass = $client['pass'];
 	}
 
-	public function index()
+	public function loadMailer(): void
 	{
-		$this->load->view('welcome_message');
+
+		try {
+
+			// $this->mail->SMTPDebug = SMTP::DEBUG_SERVER;
+			$this->mail->isSMTP();
+			$this->mail->Host       = 'smtp.gmail.com';
+			$this->mail->SMTPAuth   = true;
+			$this->mail->Username   = $this->user;
+			$this->mail->Password   = $this->pass;
+			$this->mail->SMTPSecure = 'tls';
+			$this->mail->Port       = 587;
+			//Recipients
+			$this->mail->setFrom($this->user, $this->name);
+			$this->mail->addReplyTo($this->user);
+
+			$this->mail->addAddress($this->recipient);
+
+			//Content
+			$this->mail->isHTML(true);
+			$this->mail->CharSet = "utf-8";
+
+			$this->mail->Subject = $this->subject;
+			$this->mail->Body    = $this->message;
+
+			$this->mail->send();
+			echo 'Message has been sent';
+		} catch (Exception $e) {
+			echo "Message could not be sent. Mailer Error: {$this->mail->ErrorInfo}";
+		}
 	}
 }
